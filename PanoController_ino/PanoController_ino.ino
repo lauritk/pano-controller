@@ -1,5 +1,6 @@
 #include <Thermistor.h>
 #include <PID_v1.h>
+// Add PID autotune later: https://playground.arduino.cc/Code/PIDAutotuneLibrary/
 
 #define THERMISTOR0_PIN A2
 #define THERMISTOR1_PIN A3
@@ -8,13 +9,12 @@
 
 Thermistor temp1 = Thermistor(THERMISTOR0_PIN, 10000, 25, 3950, 10000);
 
-double Setpoint, Input, Output;
+double Setpoint = 27.0, Input, Output;
 
-//Aggressive and conservative Tuning Parameters
-double aggKp=4, aggKi=0.2, aggKd=1;
-double consKp=1, consKi=0.05, consKd=0.25;
+// Defaults taken from https://github.com/Brewzone/TFTBREW/blob/master/TFT_BREW.ino
+double Kp = 1224.0, Ki = 2524.5, Kd = 1198.5;
 
-PID controlPID(&Input, &Output, &Setpoint, consKp, consKi, consKd, DIRECT);
+PID controlPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
 int WindowSize = 5000;
 unsigned long windowStartTime;
@@ -29,7 +29,6 @@ void setup(void) {
   windowStartTime = millis();
 
   Input = temp1.read(10);
-  Setpoint = 27;
 
   controlPID.SetOutputLimits(0, WindowSize);
   controlPID.SetMode(AUTOMATIC);
@@ -38,25 +37,17 @@ void setup(void) {
 void loop(void) {
   Input = temp1.read(10);
 
-  double gap = abs(Setpoint-Input);
-  if (Input > Setpoint + 2) {
+  // Start cooler only if 1 degree over target. Tune this!
+  if (Input > Setpoint + 1) {
     controlPID.SetControllerDirection(REVERSE);
   } else {
     controlPID.SetControllerDirection(DIRECT);
-  }
-  if (gap < 10)
-  {
-    controlPID.SetTunings(consKp, consKi, consKd);
-  }
-  else
-  {
-    controlPID.SetTunings(aggKp, aggKi, aggKd);
   }
 
   controlPID.Compute();
 
   unsigned long now = millis();
-  if (now - windowStartTime > WindowSize)
+  while (now - windowStartTime > WindowSize)
   {
     windowStartTime += WindowSize;
   }
@@ -66,7 +57,7 @@ void loop(void) {
   if (Output > now - windowStartTime) {
     if (controlPID.GetDirection() == REVERSE) {
       Serial.println("Cooling");
-      digitalWrite(HEATER_PIN, HIGH);
+      digitalWrite(HEATER_PIN, LOW);
       digitalWrite(COOLER_PIN, HIGH);
     } else {
       Serial.println("Heating");
@@ -74,8 +65,9 @@ void loop(void) {
       digitalWrite(HEATER_PIN, HIGH);
     }
   } else {
+    Serial.println("Target reach");
     digitalWrite(HEATER_PIN, LOW);
     digitalWrite(COOLER_PIN, LOW);
   }
-  
+
 }
