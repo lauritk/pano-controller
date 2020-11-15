@@ -29,9 +29,11 @@ void setup(void) {
   analogReference(EXTERNAL);
 
   mySwitch.enableTransmit(8);
+  mySwitch.switchOff(1, 1);
+  mySwitch.switchOff(1, 2);
 
-  pinMode(HEATER_PIN, OUTPUT);
-  pinMode(COOLER_PIN, OUTPUT);
+  // pinMode(HEATER_PIN, OUTPUT);
+  // pinMode(COOLER_PIN, OUTPUT);
 
   windowStartTime = millis();
 
@@ -45,7 +47,7 @@ void loop(void) {
   Input = temp1.read(10);
 
   // Start cooler only if 1 degree over target. Tune this!
-  if (Input > Setpoint + 6) {
+  if (Input > Setpoint + 4) {
     controlPID.SetControllerDirection(REVERSE);
   } else {
     controlPID.SetControllerDirection(DIRECT);
@@ -64,14 +66,18 @@ void loop(void) {
   if (Output > now - windowStartTime) {
     if (controlPID.GetDirection() == REVERSE) {
       Serial.println("Cooling");
-      digitalWrite(HEATER_PIN, LOW);
-      digitalWrite(COOLER_PIN, HIGH);
+      // digitalWrite(HEATER_PIN, LOW);
+      // digitalWrite(COOLER_PIN, HIGH);
+      mySwitch.switchOn(1, 2);
+      mySwitch.switchOff(1, 1);
+      heating = true;
     } else {
       Serial.println("Heating");
       if (!heating) {
-        digitalWrite(COOLER_PIN, LOW);
-        digitalWrite(HEATER_PIN, HIGH);
+        // digitalWrite(COOLER_PIN, LOW);
+        // digitalWrite(HEATER_PIN, HIGH);
         mySwitch.switchOn(1, 1);
+        mySwitch.switchOff(1, 2);
         heating = true;
       }
 
@@ -82,6 +88,7 @@ void loop(void) {
       digitalWrite(HEATER_PIN, LOW);
       digitalWrite(COOLER_PIN, LOW);
       mySwitch.switchOff(1, 1);
+      mySwitch.switchOff(1, 2);
       heating = false;
     }
   }
