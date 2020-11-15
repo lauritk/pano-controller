@@ -4,15 +4,12 @@
 // Add PID autotune later: https://playground.arduino.cc/Code/PIDAutotuneLibrary/
 
 #define THERMISTOR0_PIN A2
-#define THERMISTOR1_PIN A3
-#define HEATER_PIN 3
-#define COOLER_PIN 4
 
 RCSwitch mySwitch = RCSwitch();
 
 Thermistor temp1 = Thermistor(THERMISTOR0_PIN, 10000, 25, 3950, 10000);
 
-double Setpoint = 27.0, Input, Output;
+double Setpoint = 28.0, Input, Output;
 
 // Defaults taken from https://github.com/Brewzone/TFTBREW/blob/master/TFT_BREW.ino
 double Kp = 1224.0, Ki = 2524.5, Kd = 1198.5;
@@ -23,6 +20,7 @@ int WindowSize = 5000;
 unsigned long windowStartTime;
 
 bool heating = false;
+bool cooling = false;
 
 void setup(void) {
   Serial.begin(9600);
@@ -31,9 +29,6 @@ void setup(void) {
   mySwitch.enableTransmit(8);
   mySwitch.switchOff(1, 1);
   mySwitch.switchOff(1, 2);
-
-  // pinMode(HEATER_PIN, OUTPUT);
-  // pinMode(COOLER_PIN, OUTPUT);
 
   windowStartTime = millis();
 
@@ -61,35 +56,42 @@ void loop(void) {
     windowStartTime += WindowSize;
   }
 
-  Serial.println(Input);
+  Serial.print(Input);
+  Serial.print(" C");
+  Serial.println();
 
   if (Output > now - windowStartTime) {
     if (controlPID.GetDirection() == REVERSE) {
       Serial.println("Cooling");
-      // digitalWrite(HEATER_PIN, LOW);
-      // digitalWrite(COOLER_PIN, HIGH);
-      mySwitch.switchOn(1, 2);
-      mySwitch.switchOff(1, 1);
-      heating = true;
+      if (heating) {
+        mySwitch.switchOff(1, 1);
+        heating = false;
+      }
+      if (!cooling) {
+        mySwitch.switchOn(1, 2);
+        cooling = true;
+      }
     } else {
       Serial.println("Heating");
-      if (!heating) {
-        // digitalWrite(COOLER_PIN, LOW);
-        // digitalWrite(HEATER_PIN, HIGH);
-        mySwitch.switchOn(1, 1);
+      if (cooling) {
         mySwitch.switchOff(1, 2);
+        cooling = false;
+      }
+      if (!heating) {
+        mySwitch.switchOn(1, 1);
         heating = true;
       }
 
     }
   } else {
-    Serial.println("Target reach");
-    if (heating) {
-      digitalWrite(HEATER_PIN, LOW);
-      digitalWrite(COOLER_PIN, LOW);
+    Serial.print(Setpoint);
+    Serial.print("C target reach!");
+    Serial.println();
+    if (heating || cooling) {
       mySwitch.switchOff(1, 1);
       mySwitch.switchOff(1, 2);
       heating = false;
+      cooling = false;
     }
   }
 
